@@ -1,8 +1,8 @@
 from django.urls import path
-from .views import *
+from .views import GenerateToken, InsertUserView , add_user
 
 urlpatterns = [
-    path('generate_token/', GenerateToken.as_view(), name='generate_token'),
-    path('create-user/', InsertUserView.as_view(), name='create_user'),
-
+    path('token/', GenerateToken.as_view(), name='generate_token'),
+    path('user/', InsertUserView.as_view(), name='insert_user'),
+    path('add_user/', add_user, name='add_user'),
 ]

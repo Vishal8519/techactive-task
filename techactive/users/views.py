@@ -1,10 +1,18 @@
-from datetime import timedelta
-
+from datetime import timedelta,datetime
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import *
+from django.utils.decorators import method_decorator
+from rest_framework.views import APIView
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from .models import User
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import render
 class GenerateToken(APIView):
     def post(self, request):
         serializer = YourTokenSerializer(data=request.data)
@@ -18,27 +26,16 @@ class GenerateToken(APIView):
         }
 
         return Response(token, status=status.HTTP_200_OK)
+    
 
-
-from django.utils.decorators import method_decorator
-from rest_framework.views import APIView
-from rest_framework.authentication import TokenAuthentication
-from rest_framework.permissions import IsAuthenticated
-from .models import User
-from datetime import datetime, timedelta
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-
-# Dictionary to store request counts and timestamps
 request_counts = {}
 
 class InsertUserView(APIView):
-    authentication_classes = [TokenAuthentication]
+    authentication_classes = [JWTAuthentication, TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     @method_decorator(csrf_exempt)
     def post(self, request, *args, **kwargs):
-        access_token = request.META.get('HTTP_AUTHORIZATION').split(' ')[1]
         user = request.user
 
         f_name = request.POST.get('f_name')
@@ -51,7 +48,7 @@ class InsertUserView(APIView):
         if not f_name or not l_name or not email_id or not phone_number or not address:
             return JsonResponse({'error': 'One or more required fields missing'}, status=400)
 
-        # Check if the user has exceeded the request limit
+        
         user_ip = request.META.get('REMOTE_ADDR')
         if user_ip not in request_counts:
             request_counts[user_ip] = [1, datetime.now()]
@@ -59,13 +56,12 @@ class InsertUserView(APIView):
             count, last_request_time = request_counts[user_ip]
             time_since_last_request = datetime.now() - last_request_time
 
-            # Reset the request count and timestamp if the time since the last request is more than 1 minute
             if time_since_last_request > timedelta(minutes=1):
                 request_counts[user_ip] = [1, datetime.now()]
-            # Return an error message if the user has exceeded the request limit
+            
             elif count >= 5:
                 return JsonResponse({'error': 'Request limit exceeded. Try again after 1 minute.'}, status=429)
-            # Update the request count and timestamp if the user has not exceeded the request limit
+        
             else:
                 request_counts[user_ip] = [count + 1, last_request_time]
 
@@ -83,5 +79,22 @@ class InsertUserView(APIView):
             return JsonResponse({'message': 'User created successfully'}, status=201)
         except:
             return JsonResponse({'error': 'User creation failed'}, status=500)
+
+
+def add_user(request):
+    if request.method == 'POST':
+        f_name = request.POST.get('f_name')
+        l_name = request.POST.get('l_name')
+        email_id = request.POST.get('email_id')
+        phone_number = request.POST.get('phone_number')
+        address = request.POST.get('address')
+
+        user = User(f_name=f_name, l_name=l_name, email_id=email_id, phone_number=phone_number, address=address)
+        user.save()
+
+        return JsonResponse({'status': 'success'})
+
+    else:
+        return render(request, 'add_form.html')
 
 
